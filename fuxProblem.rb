@@ -32,7 +32,7 @@ class Problem
 end
 
 class Constraint
-	attr_reader vars
+	attr_reader :vars
 	def initialize(vars)
 		@vars = vars
 	end
@@ -60,11 +60,11 @@ class Note
 	end
 
 	def <=>(other)
-		octave_difference = other.octave<=>@octave
+		octave_difference = (@octave <=> other.octave)
 		if octave_difference != 0
 			return octave_difference
 		else
-			return other.value <=>@value
+			return @value <=> other.value
 		end
 	end
 end
@@ -81,8 +81,23 @@ end
 # Tests
 # Testing Note
 require "minitest/autorun"
-c4 = Note({value: "C", octave: 4})
-d3 = Note({value: "D", octave: 3})
-a4 = Note({value: "A", octave: 4})
 
-assert
+class TestNote < MiniTest::Unit::TestCase
+	def setup
+		@c4 = Note.new({value: "C", octave: 4})
+		@d3 = Note.new({value: "D", octave: 3})
+		@a4 = Note.new({value: "A", octave: 4})
+	end
+
+	def test_note_comparison
+		assert_equal(@d3 <=> @d3, 0)
+		assert_equal(@c4 <=> @c4, 0)
+		assert_equal(@a4 <=> @a4, 0)
+		assert_equal(@d3 <=> @c4, -1)
+		assert_equal(@d3 <=> @a4, -1)
+		assert_equal(@a4 <=> @c4, -1)
+		assert_equal(@c4 <=> @d3, 1)
+		assert_equal(@a4 <=> @d3, 1)
+		assert_equal(@c4 <=> @a4, 1)
+	end
+end
