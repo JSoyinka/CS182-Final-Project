@@ -29,6 +29,8 @@ class Problem
 		@vars = []
 		@constraints = []
 	end
+	# Might want to create a function that returns domain of a specific var here
+	# instead of double indexing
 end
 
 class Constraint
@@ -36,7 +38,7 @@ class Constraint
 	def initialize(vars)
 		@vars = vars
 	end
-	def satisfied?
+	def satisfied?(assignments)
 		raise "Satisfied not defined (call Matthew)"
 	end
 end
