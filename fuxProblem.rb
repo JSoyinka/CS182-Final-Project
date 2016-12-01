@@ -37,25 +37,45 @@ class Constraint
 		@vars = vars
 	end
 	def satisfied?
-		raise "Satisfied not defined (call Matthew)"
+		raise "Satisfied not defined (abstract method)"
 	end
 end
 
 class Variable
-	attr_accessor :state
+	attr_accessor :value
 	def domain
-		raise "Domain not defined (call Matthew)"
+		raise "Domain not defined (abstract method)"
 	end
 end
+
 
 class Note
 	include Comparable
 
-	attr_reader :value
+	attr_reader :pitch
 	attr_reader :octave
 
+	Values = {
+		"C" => 0,
+		"C#" => 1,
+		"D" => 2,
+		"D#" => 3,
+		"E" => 4,
+		"F" => 5,
+		"F#" => 6,
+		"G" => 7,
+		"G#" => 8,
+		"A" => 9,
+		"A#" => 10,
+		"B" => 11
+	}
+
 	def initialize(dict)
-		@value = dict[:value]
+		@value = dict
+		@pitch = Values[dict[:value]]
+		if @pitch.nil?
+			raise(ArgumentError, "Invalid note value.")
+		end
 		@octave = dict[:octave]
 	end
 
@@ -64,8 +84,12 @@ class Note
 		if octave_difference != 0
 			return octave_difference
 		else
-			return @value <=> other.value
+			return @pitch <=> other.pitch
 		end
+	end
+
+	def midiValue
+		@pitch + 12*@octave
 	end
 end
 
@@ -81,6 +105,10 @@ end
 # Tests
 # Testing Note
 require "minitest/autorun"
+require "minitest/reporters"
+
+reporter_options = { color: true }
+Minitest::Reporters.use! [Minitest::Reporters::DefaultReporter.new(reporter_options)]
 
 class TestNote < MiniTest::Unit::TestCase
 	def setup
@@ -89,15 +117,27 @@ class TestNote < MiniTest::Unit::TestCase
 		@a4 = Note.new({value: "A", octave: 4})
 	end
 
+	def test_badnote
+		assert_raises ArgumentError do
+			Note.new({value: "H", octave: 2})
+		end
+	end
+
 	def test_note_comparison
-		assert_equal(@d3 <=> @d3, 0)
-		assert_equal(@c4 <=> @c4, 0)
-		assert_equal(@a4 <=> @a4, 0)
-		assert_equal(@d3 <=> @c4, -1)
-		assert_equal(@d3 <=> @a4, -1)
-		assert_equal(@a4 <=> @c4, -1)
-		assert_equal(@c4 <=> @d3, 1)
-		assert_equal(@a4 <=> @d3, 1)
-		assert_equal(@c4 <=> @a4, 1)
+		refute(@d3 < @d3)
+		assert(@c4 == @c4)
+		refute(@a4 > @a4)
+		assert(@d3 < @c4)
+		refute(@d3 == @a4)
+		refute(@a4 < @c4)
+		refute(@c4 < @d3)
+		refute(@a4 == @d3)
+		assert(@c4 < @a4)
+	end
+
+	def test_midiValue
+		assert(@c4.midiValue == 48)
+		assert(@d3.midiValue == 38)
+		assert(@a4.midiValue == 57)
 	end
 end
