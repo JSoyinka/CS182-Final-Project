@@ -29,23 +29,18 @@ class Note
 	end
 
 
-	NoteValues = values
-	NoteNames = inverseValues
+	NameToValue = values
+	ValueToName = inverseValues
 
-	def self.from_string(str)
+	def initialize(str)
 		# assumes octave will always be between 0 and 9, which is reasonable.
-		octave = str[-1].to_i
+		@octave = str[-1].to_i
 		pitchName = str[0..-2]
-		Note.new({pitch: pitchName, octave: octave})
-	end
 
-	def initialize(dict)
-		@value = dict
-		@pitchNum = NoteValues[dict[:pitch]]
+		@pitchNum = NameToValue[pitchName]
 		if @pitchNum.nil?
 			raise(ArgumentError, "Invalid note value.")
 		end
-		@octave = dict[:octave]
 	end
 
 	def <=>(other)
@@ -67,13 +62,13 @@ class Note
 
 	def succ
 		if @pitchNum == 11
-			Note.new({pitch: NoteNames[0], octave: @octave + 1})
+			Note.new("#{ValueToName[0]}#{@octave + 1}")
 		else
-			Note.new({pitch: NoteNames[@pitchNum + 1], octave: @octave})
+			Note.new("#{ValueToName[@pitchNum + 1]}#{@octave}")
 		end
 	end
 
 	def to_s
-		"#{NoteNames[@pitchNum]}#{octave}"
+		"#{ValueToName[@pitchNum]}#{octave}"
 	end
 end

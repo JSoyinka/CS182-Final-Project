@@ -83,16 +83,11 @@ class FuxChord < Variable
 	end
 
 	def set_up_domain_properly(key, chordType)
-		# ????
-		# Determine all valid bass notes, all valid tenor, all valid alto, all valid soprano.
-		# iterate through bass range
+		# The strategy will be to first construct all combinations of four notes that fit the key and chord.
+		# Later, we will filter out ones that do not agree with our unary constraints.
 	end
 
 	def ensure_within_ranges
-		@soprano = @value[0]
-		@alto    = @value[1]
-		@tenor   = @value[2]
-		@bass    = @value[3]
 		# Ensure that notes are within the ranges of the singers.
 		soprano_top_note = Note.new({pitch: "C", octave: 6})
 		soprano_bot_note = Note.new({pitch: "C", octave: 4})

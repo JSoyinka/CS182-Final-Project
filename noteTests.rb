@@ -9,15 +9,16 @@ Minitest::Reporters.use! [Minitest::Reporters::DefaultReporter.new(reporter_opti
 
 class TestNote < MiniTest::Unit::TestCase
 	def setup
-		@c4 = Note.new({pitch: "C", octave: 4})
-		@d3 = Note.new({pitch: "D", octave: 3})
-		@a4 = Note.new({pitch: "A", octave: 4})
-		@otherc4 = Note.new({pitch: "C", octave: 4})
+		# @c4 = Note.new({pitch: "C", octave: 4})
+		@c4 = Note.new("C4")
+		@d3 = Note.new("D3")
+		@a4 = Note.new("A4")
+		@otherc4 = Note.new("C4")
 	end
 
 	def test_badnote
 		assert_raises ArgumentError do
-			Note.new({pitch: "H", octave: 2})
+			Note.new("H2")
 		end
 	end
 
@@ -52,12 +53,5 @@ class TestNote < MiniTest::Unit::TestCase
 		end
 		expected = ["D3","D#3","E3","F3","F#3","G3","G#3","A3","A#3","B3","C4","C#4","D4","D#4","E4","F4","F#4","G4","G#4","A4"]
 		assert(notes == expected)
-	end
-
-	def test_from_string
-		newc4 = Note.from_string("C4")
-		puts newc4.octave
-		puts @c4.octave
-		assert(newc4 == @c4)
 	end
 end
