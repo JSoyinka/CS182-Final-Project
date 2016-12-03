@@ -51,95 +51,68 @@ class Variable
 end
 
 
-class Note
-	include Comparable
-
-	attr_reader :pitch
-	attr_reader :octave
-
-	Values = {
-		"C" => 0,
-		"C#" => 1,
-		"D" => 2,
-		"D#" => 3,
-		"E" => 4,
-		"F" => 5,
-		"F#" => 6,
-		"G" => 7,
-		"G#" => 8,
-		"A" => 9,
-		"A#" => 10,
-		"B" => 11
-	}
-
-	def initialize(dict)
-		@value = dict
-		@pitch = Values[dict[:value]]
-		if @pitch.nil?
-			raise(ArgumentError, "Invalid note value.")
-		end
-		@octave = dict[:octave]
-	end
-
-	def <=>(other)
-		octave_difference = (@octave <=> other.octave)
-		if octave_difference != 0
-			return octave_difference
-		else
-			return @pitch <=> other.pitch
-		end
-	end
-
-	def midiValue
-		@pitch + 12*@octave
-	end
-end
+require_relative "./note.rb"
 
 class FuxProblem < Problem
 	def initialize(chord_progression, key)
 	end
 end
 
-class Chord
-	# four notes, one each in range
-end
-
-# Tests
-# Testing Note
-require "minitest/autorun"
-require "minitest/reporters"
-
-reporter_options = { color: true }
-Minitest::Reporters.use! [Minitest::Reporters::DefaultReporter.new(reporter_options)]
-
-class TestNote < MiniTest::Unit::TestCase
-	def setup
-		@c4 = Note.new({value: "C", octave: 4})
-		@d3 = Note.new({value: "D", octave: 3})
-		@a4 = Note.new({value: "A", octave: 4})
+class FuxChord < Variable
+	def initialize(key, chordType)
+		# eventually [soprano, alto, tenor, bass]
+		@value = [nil, nil, nil, nil]
+		@domain = []
+		set_up_domain_properly(key, chordType)
 	end
 
-	def test_badnote
-		assert_raises ArgumentError do
-			Note.new({value: "H", octave: 2})
+	def soprano
+		@value[0]
+	end
+
+	def alto
+		@value[1]
+	end
+
+	def tenor
+		@value[2]
+	end
+
+	def bass
+		@value[3]
+	end
+
+	def set_up_domain_properly(key, chordType)
+		# ????
+		# Determine all valid bass notes, all valid tenor, all valid alto, all valid soprano.
+		# iterate through bass range
+	end
+
+	def ensure_within_ranges
+		@soprano = @value[0]
+		@alto    = @value[1]
+		@tenor   = @value[2]
+		@bass    = @value[3]
+		# Ensure that notes are within the ranges of the singers.
+		soprano_top_note = Note.new({pitch: "C", octave: 6})
+		soprano_bot_note = Note.new({pitch: "C", octave: 4})
+		unless @soprano.between?(soprano_bot_note, soprano_top_note)
+			raise ArgumentError, "Soprano out of range."
 		end
-	end
-
-	def test_note_comparison
-		refute(@d3 < @d3)
-		assert(@c4 == @c4)
-		refute(@a4 > @a4)
-		assert(@d3 < @c4)
-		refute(@d3 == @a4)
-		refute(@a4 < @c4)
-		refute(@c4 < @d3)
-		refute(@a4 == @d3)
-		assert(@c4 < @a4)
-	end
-
-	def test_midiValue
-		assert(@c4.midiValue == 48)
-		assert(@d3.midiValue == 38)
-		assert(@a4.midiValue == 57)
+		alto_top_note = Note.new({pitch: "F", octave: 5})
+		alto_bot_note = Note.new({pitch: "F", octave: 3})
+		unless @alto.between?(alto_bot_note, alto_top_note)
+			raise ArgumentError, "Alto out of range."
+		end
+		tenor_top_note = Note.new({pitch: "C", octave: 5})
+		tenor_bot_note = Note.new({pitch: "C", octave: 3})
+		unless @tenor.between?(tenor_bot_note, tenor_top_note)
+			raise ArgumentError, "Tenor out of range."
+		end
+		bass_top_note = Note.new({pitch: "E", octave: 4})
+		bass_bot_note = Note.new({pitch: "E", octave: 2})
+		unless @bass.between?(bass_bot_note, bass_top_note)
+			raise ArgumentError, "Bass out of range."
+		end
 	end
 end
