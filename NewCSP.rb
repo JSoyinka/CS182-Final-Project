@@ -8,17 +8,12 @@ class Problem
         @vars = {}
     end
 
+    # Create a new variable
     def new_var(id, domain: nil, assignment: nil)
         vars[id] = Variable.new(id, domain: domain, assignment: assignment)
     end
 
-    # Returns the domain of a specific variable
-    def domain_of(variable_id)
-        variable = vars[variable_id]
-        # If the variable or domain doesn't exist return [], else return domain
-        variable.nil? || variable.domain.nil? ? [] : variable.domain
-    end
-
+    # Create a new constraint
     def new_constraint(*vars, &block)
         constraint = Constraint.new(vars: vars, blck: block)
         constraints.push(constraint)
@@ -27,7 +22,8 @@ class Problem
     # Make sure each assignment is valid
     def validate(assigned_var, assignments)
         constraints.each do |constraint|
-            return false if constraint.var_qualifier?(assigned_var, assignments) && !constraint.valid(assignments)
+            # First checks to see if the constraint applies to the new variable, then checks if the assignment is valid
+            return false if constraint.var_is_constrained?(assigned_var, assignments) && !constraint.valid(assignments)
         end
         return true
     end
@@ -41,11 +37,10 @@ class Problem
         end
     end
 
+    # Run that backtrack search
     def assign(csp = Solver.new(self))
         csp.assign(assign_vars)
     end
-
-
 end
 
 class Variable
@@ -72,17 +67,19 @@ class Constraint
         end
     end
 
-    def var_qualifier?(assigned_var, assignments)
-        # Checks to make sure the variable you're assigning exist and isn't already assigned
-        ((vars.include?(assigned_var) && vars.all?{ |v| assignments.key?(v) })) || vars.empty?
+    # Checks if a given variable is constrained by the current constraint object 
+    # (i.e. if the constraint applies to Var1 and Var2, we shouldn't run it on Var 3)
+    def var_is_constrained?(assigned_var, assignments)
+        vars.all?{ |v| assignments.key?(v) } || vars.empty?
     end
 
+    # Checks to see if the assignment has a new variable
     def valid(assignments)
-        # return false unless blck => should still work?
-        blck.call(*values_at(assignments), assignments)
+        blck.call(*vals_for(assignments), assignments)
     end
 
-    def values_at(assignments)
+    # Gets relevant values for specific variables
+    def vals_for(assignments)
         assignments.values_at(*vars)
     end
 end
@@ -104,24 +101,22 @@ class Solver
         problem.vars.reject { |x| assignments.include?(x) }.each_value.first
     end
 
-    # Gets domin of specific variable
-    def domain_of(var)
-        problem.domain_of(var.id)
-    end
-
     # Checks if the assignment was okay
     def satisfied?(assignment, assignments)
         problem.validate(assignment, assignments)
     end
 
+    # Backtrack function
     def assign(assignments = {})
         return assignments if done?(assignments)
         var = next_available_var(assignments)
-        domain_of(var).each do |value|
+        var.domain.each do |value|
+            # Assigne the next possible value
             assigned = assignments.merge(var.id => value)
+            # Check to see if that assignment was valid
             if satisfied?(var.id, assigned)
-                result = assign(assigned)
-                return result if result
+                solution = assign(assigned)
+                return solution if solution
             end
         end
         return false
