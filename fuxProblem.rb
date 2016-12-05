@@ -1,68 +1,40 @@
-###############################################################################
-# Abstract classes Problem, Constraint, and Variable
-#
-# Must conform to the APIs
-#   Problem#vars
-#     -> returns an ordered list of domains. Each domain corresponds to a var.
-#   Problem#constraints
-#     -> returns a list of Constraint objects that use those vars.
-#   
-#   Constraint#vars
-#     -> returns a list of vars constrained by this constraint
-#   Constraint#satisfied?
-#     -> returns a bool indicating whether this constraint is currently met.
-#
-#   Variable#domain
-#     -> returns the list of all possible values it can hold.
-#   Variable#value
-# 		-> gets the current state of the variable
-#        If we have yet to assign a value to this variable, then returns nil.
-#   Variable#value=(value_i)
-#     -> sets the variable to the value specified in value_i
-#
-###############################################################################
-
-class Problem
-	attr_reader :vars
-	attr_reader :constraints
-	def initialize
-		@vars = []
-		@constraints = []
-	end
-	# Might want to create a function that returns domain of a specific var here
-	# instead of double indexing
-end
-
-class Constraint
-	attr_reader :vars
-	def initialize(vars)
-		@vars = vars
-	end
-	def satisfied?(assignments)
-		raise "Satisfied not defined (abstract method)"
-	end
-end
-
-class Variable
-	attr_accessor :value
-	def domain
-		raise "Domain not defined (abstract method)"
-	end
-end
-
-
+require_relative "./Problem.rb"
 require_relative "./note.rb"
 
 class FuxProblem < Problem
 	def initialize(chord_progression, key)
+		# list of chords
+		vars = {}
+		chord_progression.each_with_index do |chord, i|
+			vars << FuxChord(key, chord, i)
+		end
 	end
 end
 
 class FuxChord < Variable
-	def initialize(key, chordType)
-		# eventually [soprano, alto, tenor, bass]
-		@value = [nil, nil, nil, nil]
+	Ranges = {
+		soprano: {
+			top: Note.new("C6"),
+			bot: Note.new("C4")
+		},
+		alto: {
+			top: Note.new("F5"),
+			bot: Note.new("F3")
+		},
+		tenor: {
+			top: Note.new("C5"),
+			bot: Note.new("C3")
+		},
+		bass: {
+			top: Note.new("E4"),
+			bot: Note.new("E2")
+		}
+	}
+	def initialize(key, chordType, id)
+		# [soprano, alto, tenor, bass]
+		@assignment = [nil, nil, nil, nil]
 		@domain = []
+		@id = id
 		set_up_domain_properly(key, chordType)
 	end
 
@@ -84,30 +56,45 @@ class FuxChord < Variable
 
 	def set_up_domain_properly(key, chordType)
 		# The strategy will be to first construct all combinations of four notes that fit the key and chord.
-		# Later, we will filter out ones that do not agree with our unary constraints.
+		# Later, we will filter out ones that do not agree with our unbreakable unary constraints.
+		(Ranges[:soprano][:bot]..Ranges[:soprano][:top]).each do |s|
+			next unless s.in_triad?(key, chordType)
+			(Ranges[:alto][:bot]..Ranges[:alto][:top]).each do |a|
+				next unless a.in_triad?(key, chordType)
+				(Ranges[:tenor][:bot]..Ranges[:tenor][:top]).each do |t|
+					next unless t.in_triad?(key, chordType)
+					(Ranges[:bass][:bot]..Ranges[:bass][:top]).each do |b|
+						next unless b.in_triad?(key, chordType)
+						@domain << [s, a, t, b]
+					end
+				end
+			end
+		end
 	end
 
 	def ensure_within_ranges
 		# Ensure that notes are within the ranges of the singers.
-		soprano_top_note = Note.new({pitch: "C", octave: 6})
-		soprano_bot_note = Note.new({pitch: "C", octave: 4})
-		unless @soprano.between?(soprano_bot_note, soprano_top_note)
+		unless @soprano.between?(Ranges[:soprano][:bot], Ranges[:soprano][:top])
 			raise ArgumentError, "Soprano out of range."
 		end
-		alto_top_note = Note.new({pitch: "F", octave: 5})
-		alto_bot_note = Note.new({pitch: "F", octave: 3})
-		unless @alto.between?(alto_bot_note, alto_top_note)
+		unless @alto.between?(Ranges[:alto][:bot], Ranges[:alto][:top])
 			raise ArgumentError, "Alto out of range."
 		end
-		tenor_top_note = Note.new({pitch: "C", octave: 5})
-		tenor_bot_note = Note.new({pitch: "C", octave: 3})
-		unless @tenor.between?(tenor_bot_note, tenor_top_note)
+		unless @tenor.between?(Ranges[:tenor][:bot], Ranges[:tenor][:top])
 			raise ArgumentError, "Tenor out of range."
 		end
-		bass_top_note = Note.new({pitch: "E", octave: 4})
-		bass_bot_note = Note.new({pitch: "E", octave: 2})
-		unless @bass.between?(bass_bot_note, bass_top_note)
+		unless @bass.between?(Ranges[:bass][:bot])
 			raise ArgumentError, "Bass out of range."
+		end
+	end
+end
+
+def FuxConstraint < Constraint
+	def initialize(cType, vars)
+		# cType is one of the types of constraints we have in FS4PH.
+		case cType
+		when :voices_must_be_within_octave
+
 		end
 	end
 end

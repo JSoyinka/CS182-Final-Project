@@ -67,6 +67,9 @@ class Constraint
     def initialize(vars: nil, blck: nil)
         @vars = vars.flatten.compact
         @blck = blck
+        if @blck.nil?
+            raise ArgumentError
+        end
     end
 
     def var_qualifier?(assigned_var, assignments)
@@ -75,7 +78,7 @@ class Constraint
     end
 
     def valid(assignments)
-        return false unless blck
+        # return false unless blck => should still work?
         blck.call(*values_at(assignments), assignments)
     end
 
