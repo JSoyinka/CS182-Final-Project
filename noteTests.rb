@@ -83,4 +83,11 @@ class TestNote < MiniTest::Unit::TestCase
 		assert(Note.new("A4").in_triad?("A", 6))
 		assert(Note.new("F#2").in_triad?("A", 6))
 	end
+
+	def test_within
+		assert(Note.new("C3").within?(12, Note.new("C4")))
+		assert(Note.new("D#5").within?(12, Note.new("D#4")))
+		refute(Note.new("C3").within?(12, Note.new("D4")))
+		refute(Note.new("F#2").within?(12, Note.new("F1")))
+	end
 end

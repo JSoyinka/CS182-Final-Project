@@ -90,4 +90,8 @@ class Note
 		fifth %= 12
 		[root, third, fifth].include? @pitchNum
 	end
+
+	def within?(distance, otherNote)
+		return (midiValue - otherNote.midiValue).abs <= distance
+	end
 end

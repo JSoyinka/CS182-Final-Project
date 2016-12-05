@@ -1,12 +1,36 @@
-require_relative "./Problem.rb"
+require_relative "./NewCSP.rb"
 require_relative "./note.rb"
 
 class FuxProblem < Problem
 	def initialize(chord_progression, key)
-		# list of chords
-		vars = {}
+		# list of chords as vars
+		@vars = []
 		chord_progression.each_with_index do |chord, i|
-			vars << FuxChord(key, chord, i)
+			@vars << FuxChord(key, chord, i)
+		end
+		@constraints = []
+		# add all constraints between the vars.
+		# first pass: add unary constraints.
+		@vars.each do |chord|
+			# Distance between voices cannot exceed an octave (except tenor/bass).
+			@constraints << VoicesWithinOctave.new(chord)
+			# Doubling rules:
+			#  If chord is not 7:
+			#   Best: root x2, third x1, fifth x1
+			#   Next best: root x1, third x1, fifth x2
+			#   Next best: root x1, third x2, fifth x1
+			#   Next best: root x3, third x1
+			#   all others are unacceptable
+			#  If chord is 7:
+			#   Best: root x1, third x1, fifth x2
+			#   Next best: root x1, third x2, fifth x1
+			#   others are unacceptable.
+			# for right now, only the hardest version:
+			#  Not 7: must be one of the above 4
+			#  7 chord: must be one of the above 2
+			@constraints << DoublingRules.new(chord)
+
+			# 
 		end
 	end
 end
@@ -39,19 +63,19 @@ class FuxChord < Variable
 	end
 
 	def soprano
-		@value[0]
+		@assignment[0]
 	end
 
 	def alto
-		@value[1]
+		@assignment[1]
 	end
 
 	def tenor
-		@value[2]
+		@assignment[2]
 	end
 
 	def bass
-		@value[3]
+		@assignment[3]
 	end
 
 	def set_up_domain_properly(key, chordType)
@@ -89,12 +113,25 @@ class FuxChord < Variable
 	end
 end
 
-def FuxConstraint < Constraint
-	def initialize(cType, vars)
-		# cType is one of the types of constraints we have in FS4PH.
-		case cType
-		when :voices_must_be_within_octave
-
+class VoicesWithinOctave < Constraint
+	def initialize(chord)
+		@vars = [chord]
+		@function = lambda do
+			# is soprano within octave of alto?
+			# is alto within octave of tenor?
+			soprano_and_alto = (chord.soprano.within?(12, chord.alto))
+			alto_and_tenor = (chord.alto.within?(12, chord.tenor))
+			# only true when both are true.
+			return soprano_and_alto && alto_and_tenor
 		end
 	end
+
+	def satisfied?
+		# fetch variables from problem.
+		@function.call()
+	end
 end
+
+class DoublingRules < Constraint
+	def initialize(chord)
+		@vars = [chord]
