@@ -25,19 +25,19 @@ class Problem
   def validate(assigned_var, assignments)
     constraints.each do |constraint|
       # First checks to see if the constraint applies to the new variable, then checks if the assignment is valid
-      return false if constraint.var_is_constrained?(assignments) && !constraint.valid(assignments)
+      return false if constraint.relevant_vars_assigned?(assignments) && !constraint.valid?(assignments)
     end
     return true
   end
 
   # Creates a map called assignments for each variable in order to keep track of assignments 
-  def assign_vars
-    @vars.reduce({}) do |assignments, (id, variable)|
-      # If we have something to assign to the variable object, assign that
-      @assignments[id] = variable.assignment unless variable.assignment.nil?
-      @assignments
-    end
-  end
+  # def assign_vars
+  #   @vars.reduce({}) do |assignments, (id, variable)|
+  #     # If we have something to assign to the variable object, assign that
+  #     @assignments[id] = variable.assignment unless variable.assignment.nil?
+  #     @assignments
+  #   end
+  # end
 
   # Classic CSP forward_check
   def forward_check(assignments)
@@ -50,12 +50,12 @@ class Problem
           # Add the variable we want to test
           temp.merge!(var.id => nil)
           # Continue if the new variable is part of the constraint and every other variable in the constraint has been assigned
-          if constraint.vars.include?(var.id) && constraint.var_is_constrained?(temp)
+          if constraint.vars.include?(var.id) && constraint.relevant_vars_assigned?(temp)
             prune = []
             var.domain.each do |value|
               temp.merge!(var.id => value)
               # If the new variable wouldn't work add it to the prune list
-              prune << value if !constraint.valid(temp)
+              prune << value if !constraint.valid?(temp)
             end
             # Prune those values
             prune.each() { |x| var.domain.delete(x) }
@@ -67,7 +67,7 @@ class Problem
 
   # Run that backtrack search
   def assign(csp = Solver.new(self))
-    csp.assign(assign_vars)
+    csp.assign({})
   end
 
   # Restore the domain of variables we pruned
@@ -109,20 +109,21 @@ class Constraint
 
   # Checks if a given variable is constrained by the current constraint object 
   # (i.e. if the constraint applies to Var1 and Var2, we shouldn't run it on Var 3)
-  def var_is_constrained?(assignments)
+  def relevant_vars_assigned?(assignments)
       vars.all?{ |v| assignments.key?(v) } || vars.empty?
   end
 
-  def fcheck_constrained?(assignments)
-      vars.all?{ |v| assignments.include?(v) }
-  end
+  # def fcheck_constrained?(assignments)
+  #     vars.all?{ |v| assignments.include?(v) }
+  # end
 
   # Checks to see if the assignment has a new variable
-  def valid(assignments)
+  def valid?(assignments)
       blck.call(*vals_for(assignments), assignments)
   end
 
   # Gets relevant values for specific variables
+  # Matthew doesn't have to implement this.
   def vals_for(assignments)
       assignments.values_at(*vars)
   end
@@ -158,6 +159,7 @@ class Solver
     var.domain.each do |value|
       # Assigned the next possible value
       assigned = assignments.merge(var.id => value)
+      # assignments.clone[var.id] = value
       # If forward check completely pruned the domain of a variable choose another value assignment
       unless problem.forward_check(assigned)
         problem.unprune_vars

@@ -126,7 +126,7 @@ class VoicesWithinOctave < Constraint
 		end
 	end
 
-	def satisfied?
+	def valid?
 		# fetch variables from problem.
 		@function.call()
 	end
