@@ -10,6 +10,8 @@ class Problem
     @assignments = {}
   end
 
+  ## SECTION FOR INITIALIZING A PRONBLEM##
+
   # Create a new variable
   def new_var(id, domain: nil, assignment: nil)
     vars[id] = Variable.new(id, domain: domain, assignment: assignment)
@@ -21,11 +23,13 @@ class Problem
     constraints.push(constraint)
   end
 
+  ## SECTION FOR BACKTRACK FUNCTIONS##
+
   # Make sure each assignment is valid
-  def validate(assigned_var, assignments)
+  def satisfied?(new_var, assignments)
     constraints.each do |constraint|
       # First checks to see if the constraint applies to the new variable, then checks if the assignment is valid
-      return false if constraint.var_is_constrained?(assignments) && !constraint.valid(assignments)
+      return false if constraint.var_is_constrained?(new_var, assignments) && !constraint.valid(assignments)
     end
     return true
   end
@@ -41,7 +45,7 @@ class Problem
           # Add the variable we want to test
           temp.merge!(var.id => nil)
           # Continue if the new variable is part of the constraint and every other variable in the constraint has been assigned
-          if constraint.vars.include?(var.id) && constraint.var_is_constrained?(temp)
+          if constraint.var_is_constrained?(var.id, temp)
             prune = []
             var.domain.each do |value|
               temp.merge!(var.id => value)
@@ -65,12 +69,6 @@ class Problem
     vars.reject { |x| assignments.include?(x) }.each_value.first
   end
 
-  # Checks if the assignment was okay
-  def satisfied?(assignment, assignments)
-    validate(assignment, assignments)
-  end
-
-
   # Backtrack function
   def backtrack(assignments = {})
     return assignments if backtrack_done?(assignments)
@@ -84,7 +82,7 @@ class Problem
         next
       end
       # Check to see if that assignment was valid
-      if satisfied?(var.id, assigned)
+      if satisfied?(var, assigned)
         solution = backtrack(assigned)
         return solution if solution
       end
@@ -92,19 +90,27 @@ class Problem
     return false
   end
 
+  ## SECTION FOR MIN CONFLICTS FUNCTIONS ##
+  def mc_satisfied(assignments)
+    constraints.each do |constraint|
+      # First checks to see if the constraint applies to the new variable, then checks if the assignment is valid
+      return !constraint.valid(assignments)
+    end
+    return true
+  end
   def mc_assign(assignments = {})
-    assignments.each do |id, value|
-      puts id
+    assignments.each do |id, value| 
+      return assignments if satisfied?(id, assignments)
     end
   end
 
 
-  def min_conflicts_assign(csp = Solver.new(self))
+  def min_conflicts()
     random_hash = {}
     vars.each_value do |var|
       random_hash[var.id] = var.domain.sample
     end
-    csp.mc_assign(random_hash)
+    mc_assign(random_hash)
   end
 
   # Restore the domain of variables we pruned
@@ -146,8 +152,8 @@ class Constraint
 
   # Checks if a given variable is constrained by the current constraint object 
   # (i.e. if the constraint applies to Var1 and Var2, we shouldn't run it on Var 3)
-  def var_is_constrained?(assignments)
-      vars.all?{ |v| assignments.key?(v) } || vars.empty?
+  def var_is_constrained?(new_var, assignments)
+      vars.include?(new_var) && vars.all?{ |v| assignments.key?(v) } || vars.empty?
   end
 
   # Checks to see if the assignment has a new variable
@@ -163,26 +169,26 @@ end
 
 
 problem = Problem.new
-problem.new_var :a, domain: [1, 2, 3, 4, 5]
-problem.new_var :b, domain: [1, 2, 3, 4, 5]
-problem.new_var :c, domain: [1, 2, 3, 4, 5]
-problem.new_var :d, domain: [1, 2, 3, 4, 5]
+# problem.new_var :a, domain: [1, 2, 3, 4, 5]
+# problem.new_var :b, domain: [1, 2, 3, 4, 5]
+# problem.new_var :c, domain: [1, 2, 3, 4, 5]
+# problem.new_var :d, domain: [1, 2, 3, 4, 5, 6, 7, 8]
 
-problem.new_constraint(:a, :b) { |a, b| a > b }
-problem.new_constraint(:b, :c) { |b, c| b < c}
-problem.new_constraint(:a, :c, :d) { |a, c, d| a + c <= d}
+# problem.new_constraint(:a, :b) { |a, b| a > b }
+# problem.new_constraint(:b, :c) { |b, c| b < c}
+# problem.new_constraint(:a, :c, :d) { |a, c, d| a + c <+ d}
 
 
-# problem.new_var :a, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-# problem.new_var :b, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-# problem.new_var :c, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-# problem.new_var :d, domain: [7, 8, 9, 10, 11]
-# problem.new_var :e, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :b, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :c, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :d, domain: [7, 8, 9, 10, 11]
+problem.new_var :e, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
-# problem.new_constraint(:b, :c) { |b, c| b > c }
-# problem.new_constraint(:b) { |a| a % 3 == 0 }
-# problem.new_constraint(:b, :a) { |b, a| b == a * 2 }
-# problem.new_constraint(:a, :b, :c, :e) {|a, b, c, d| a + b + c + d > 40}
-# problem.new_constraint(:c, :a) { |c, a| c > a }
+problem.new_constraint(:b, :c) { |b, c| b > c }
+problem.new_constraint(:b) { |a| a % 3 == 0 }
+problem.new_constraint(:b, :a) { |b, a| b == a * 2 }
+problem.new_constraint(:a, :b, :c, :e) {|a, b, c, d| a + b + c + d > 40}
+problem.new_constraint(:c, :a) { |c, a| c > a }
 
 puts problem.backtrack
