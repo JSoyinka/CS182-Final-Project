@@ -15,7 +15,7 @@ class TestFuxChords < MiniTest::Unit::TestCase
 		newdomain = @chord.domain.clone
 		@chord.domain.each { |x|
 			@chord.assignment = x
-			unless cons.satisfied?
+			unless cons.valid?
 				newdomain.delete(x)
 			end
 		}

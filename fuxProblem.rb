@@ -4,11 +4,13 @@ require_relative "./note.rb"
 class FuxProblem < Problem
 	def initialize(chord_progression, key)
 		# list of chords as vars
-		@vars = []
+		@vars = {}
 		chord_progression.each_with_index do |chord, i|
-			@vars << FuxChord(key, chord, i)
+			@vars[i] = FuxChord(key, chord, i)
 		end
 		@constraints = []
+		@soft_constraints = []
+		@assignments = {}
 		# add all constraints between the vars.
 		# first pass: add unary constraints.
 		@vars.each do |chord|
@@ -57,7 +59,7 @@ class FuxChord < Variable
 	def initialize(key, chordType, id)
 		# [soprano, alto, tenor, bass]
 		@assignment = [nil, nil, nil, nil]
-		@domain = []
+		@init_domain = []
 		@id = id
 		set_up_domain_properly(key, chordType)
 	end
@@ -89,11 +91,12 @@ class FuxChord < Variable
 					next unless t.in_triad?(key, chordType)
 					(Ranges[:bass][:bot]..Ranges[:bass][:top]).each do |b|
 						next unless b.in_triad?(key, chordType)
-						@domain << [s, a, t, b]
+						@init_domain << [s, a, t, b]
 					end
 				end
 			end
 		end
+		@domain = init_domain.clone
 	end
 
 	def ensure_within_ranges
@@ -135,3 +138,5 @@ end
 class DoublingRules < Constraint
 	def initialize(chord)
 		@vars = [chord]
+	end
+end
