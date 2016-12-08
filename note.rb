@@ -33,11 +33,6 @@ class Note
 	NameToValue = values
 	ValueToName = inverseValues
 
-	# determine by major scale how to translate chordType into an offset value
-	# C C# D D# E F F# G G# A A# B
-	# 0 1  2 3  4 5 6  7 8  9 10 11
-	MajorScale = [0, 2, 4, 5, 7, 9, 11]
-
 	def initialize(str)
 		# assumes octave will always be between 0 and 9, which is reasonable.
 		@octave = str[-1].to_i
@@ -76,19 +71,6 @@ class Note
 
 	def to_s
 		"#{ValueToName[@pitchNum]}#{octave}"
-	end
-
-	def in_triad?(key, chordType)
-		# dealing with 1-indexing
-		chordType -= 1
-		keyPitchNum = NameToValue[key]
-		root = keyPitchNum + MajorScale[chordType % 7]
-		root %= 12
-		third = keyPitchNum + MajorScale[(chordType + 2) % 7]
-		third %= 12
-		fifth = keyPitchNum + MajorScale[(chordType + 4) % 7]
-		fifth %= 12
-		[root, third, fifth].include? @pitchNum
 	end
 
 	def within?(distance, otherNote)

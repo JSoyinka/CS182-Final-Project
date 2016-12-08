@@ -1,3 +1,5 @@
+require "byebug"
+
 class Problem
   attr_reader :constraints
   attr_reader :vars
@@ -67,6 +69,7 @@ class Problem
 
   # Run that backtrack search
   def assign(csp = Solver.new(self))
+    byebug
     csp.assign({})
   end
 

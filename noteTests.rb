@@ -54,35 +54,35 @@ class TestNote < MiniTest::Unit::TestCase
 		assert(notes == expected)
 	end
 
-	def test_in_triad
-		notes = [
-			Note.new("C4"),
-			Note.new("D4"),
-			Note.new("E4"),
-			Note.new("F4"),
-			Note.new("G4"),
-			Note.new("A4"),
-			Note.new("B4")
-		]
-		assert(notes[0].in_triad?("C", 1))
-		assert(notes[2].in_triad?("C", 1))
-		assert(notes[4].in_triad?("C", 1))
-		assert(@c4.in_triad?("C", 4))
-		assert(@c4.in_triad?("C", 6))
-		refute(@c4.in_triad?("C", 5))
-		b4 = Note.new("B4")
-		assert(b4.in_triad?("C", 7))
-		assert(b4.in_triad?("C", 3))
-		assert(b4.in_triad?("C", 5))
-		assert(b4.in_triad?("B", 1))
+	# def test_in_triad
+	# 	notes = [
+	# 		Note.new("C4"),
+	# 		Note.new("D4"),
+	# 		Note.new("E4"),
+	# 		Note.new("F4"),
+	# 		Note.new("G4"),
+	# 		Note.new("A4"),
+	# 		Note.new("B4")
+	# 	]
+	# 	assert(notes[0].in_triad?("C", 1))
+	# 	assert(notes[2].in_triad?("C", 1))
+	# 	assert(notes[4].in_triad?("C", 1))
+	# 	assert(@c4.in_triad?("C", 4))
+	# 	assert(@c4.in_triad?("C", 6))
+	# 	refute(@c4.in_triad?("C", 5))
+	# 	b4 = Note.new("B4")
+	# 	assert(b4.in_triad?("C", 7))
+	# 	assert(b4.in_triad?("C", 3))
+	# 	assert(b4.in_triad?("C", 5))
+	# 	assert(b4.in_triad?("B", 1))
 
-		# Possible failure points:
-		# key + chordtype is greater than 8.
+	# 	# Possible failure points:
+	# 	# key + chordtype is greater than 8.
 
-		assert(Note.new("C#5").in_triad?("A", 6))
-		assert(Note.new("A4").in_triad?("A", 6))
-		assert(Note.new("F#2").in_triad?("A", 6))
-	end
+	# 	assert(Note.new("C#5").in_triad?("A", 6))
+	# 	assert(Note.new("A4").in_triad?("A", 6))
+	# 	assert(Note.new("F#2").in_triad?("A", 6))
+	# end
 
 	def test_within
 		assert(Note.new("C3").within?(12, Note.new("C4")))
