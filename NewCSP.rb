@@ -90,27 +90,61 @@ class Problem
     return false
   end
 
-  ## SECTION FOR MIN CONFLICTS FUNCTIONS ##
-  def mc_satisfied(assignments)
+  ## SECTION FOR RANDOM MIN CONFLICTS FUNCTIONS ##
+
+  def mc_satisfied?(assignments)
     constraints.each do |constraint|
       # First checks to see if the constraint applies to the new variable, then checks if the assignment is valid
-      return !constraint.valid(assignments)
+      return false if !constraint.valid(assignments)
     end
     return true
   end
-  def mc_assign(assignments = {})
-    assignments.each do |id, value| 
-      return assignments if satisfied?(id, assignments)
+
+  def count_constraints(id, assignments)
+    conflicts = 0
+    constraints.each do |constraint|
+      if !constraint.var_is_constrained?(id, assignments)
+        next 
+      elsif !constraint.valid(assignments)
+        conflicts += 1
+      end
     end
+    return conflicts
+  end
+  
+  def best_value(id, assignments)
+    best_val = nil
+    min_conflicts = vars[id].domain.size + 1
+    vars[id].domain.each do |val|
+      # First checks to see if the constraint applies to the new variable, then checks if the assignment is valid
+      assignments[id] = val
+      conflicts = count_constraints(id, assignments)
+      if conflicts < min_conflicts
+        best_val = val
+        min_conflicts = conflicts
+      end
+    end
+    assignments[id] = best_val
+    return assignments
+  end
+
+  def rmc_assign(assignments = {})
+    return assignments if mc_satisfied?(assignments)
+    assignments.keys.each do |id| 
+      assignments = best_value(id, assignments)
+      puts id
+      puts assignments
+    end
+    return rmc_assign(assignments)
   end
 
 
-  def min_conflicts()
+  def rand_min_conflicts()
     random_hash = {}
-    vars.each_value do |var|
-      random_hash[var.id] = var.domain.sample
+    vars.keys.shuffle.each do |var|
+      random_hash[var] = vars[var].domain.sample
     end
-    mc_assign(random_hash)
+    rmc_assign(random_hash)
   end
 
   # Restore the domain of variables we pruned
@@ -169,26 +203,26 @@ end
 
 
 problem = Problem.new
-# problem.new_var :a, domain: [1, 2, 3, 4, 5]
-# problem.new_var :b, domain: [1, 2, 3, 4, 5]
-# problem.new_var :c, domain: [1, 2, 3, 4, 5]
-# problem.new_var :d, domain: [1, 2, 3, 4, 5, 6, 7, 8]
+problem.new_var :a, domain: [1, 2, 3, 4, 5]
+problem.new_var :b, domain: [1, 2, 3, 4, 5]
+problem.new_var :c, domain: [1, 2, 3, 4, 5]
+problem.new_var :d, domain: [1, 2, 3, 4, 5, 6, 7, 8]
 
-# problem.new_constraint(:a, :b) { |a, b| a > b }
-# problem.new_constraint(:b, :c) { |b, c| b < c}
-# problem.new_constraint(:a, :c, :d) { |a, c, d| a + c <+ d}
+problem.new_constraint(:a, :b) { |a, b| a > b }
+problem.new_constraint(:b, :c) { |b, c| b < c}
+problem.new_constraint(:a, :c, :d) { |a, c, d| a + c <+ d}
 
 
-problem.new_var :a, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :b, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :c, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :d, domain: [7, 8, 9, 10, 11]
-problem.new_var :e, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+# problem.new_var :a, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+# problem.new_var :b, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+# problem.new_var :c, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+# problem.new_var :d, domain: [7, 8, 9, 10, 11]
+# problem.new_var :e, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
-problem.new_constraint(:b, :c) { |b, c| b > c }
-problem.new_constraint(:b) { |a| a % 3 == 0 }
-problem.new_constraint(:b, :a) { |b, a| b == a * 2 }
-problem.new_constraint(:a, :b, :c, :e) {|a, b, c, d| a + b + c + d > 40}
-problem.new_constraint(:c, :a) { |c, a| c > a }
+# problem.new_constraint(:b, :c) { |b, c| b > c }
+# problem.new_constraint(:b) { |a| a % 3 == 0 }
+# problem.new_constraint(:b, :a) { |b, a| b == a * 2 }
+# problem.new_constraint(:a, :b, :c, :e) {|a, b, c, d| a + b + c + d > 40}
+# problem.new_constraint(:c, :a) { |c, a| c > a }
 
-puts problem.backtrack
+puts problem.rand_min_conflicts
