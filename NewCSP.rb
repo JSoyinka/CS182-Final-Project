@@ -77,6 +77,11 @@ class Problem
     vars.reject { |x| assignments.include?(x) }.each_value.first
   end
 
+  def most_constrained_var(assignments)
+    assignments.each do |var|
+
+    end 
+  end
   # Backtrack function
   def backtrack(assignments = {})
     return assignments if backtrack_done?(assignments)
@@ -198,7 +203,6 @@ class Problem
     puts random_hash
     mc_assign(random_hash, random_hash.keys.sample)
   end
-
 end
 
 class Variable
