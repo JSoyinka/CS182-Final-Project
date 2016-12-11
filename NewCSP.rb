@@ -60,6 +60,14 @@ class Problem
       end
   end
 
+  # Restore the domain of variables we pruned
+  def unprune_vars
+    vars.each_value do |var|
+      var.unprune
+    end
+  end
+
+  # Checks if the backtrack algorithm is done
   def backtrack_done?(assignments)
     assignments.size == vars.size
   end
@@ -90,16 +98,18 @@ class Problem
     return false
   end
 
-  ## SECTION FOR RANDOM MIN CONFLICTS FUNCTIONS ##
+  ## SECTION FOR MIN CONFLICTS FUNCTIONS ##
 
+  # Checks if min_conflicts
   def mc_satisfied?(assignments)
     constraints.each do |constraint|
-      # First checks to see if the constraint applies to the new variable, then checks if the assignment is valid
+      # Does not first check to make sure the constraints apply, because all assignments have been made
       return false if !constraint.valid(assignments)
     end
     return true
   end
 
+  # Counting constraints, in order to find the least constrained value
   def count_constraints(id, assignments)
     conflicts = 0
     constraints.each do |constraint|
@@ -111,48 +121,84 @@ class Problem
     end
     return conflicts
   end
-  
-  def best_value(id, assignments)
-    best_val = nil
-    min_conflicts = vars[id].domain.size + 1
-    vars[id].domain.each do |val|
+
+  def least_constraining_value(id, assignments)
+    # Better to keep the value the same, if there are conflicts
+    curr_val = assignments[id]
+    good_vals = [assignments[id]]
+    min_conflicts = count_constraints(id, assignments)
+    vars[id].domain.reject{|x| x == curr_val}.each do |val|
       # First checks to see if the constraint applies to the new variable, then checks if the assignment is valid
       assignments[id] = val
       conflicts = count_constraints(id, assignments)
-      if conflicts < min_conflicts
-        best_val = val
+      if conflicts == min_conflicts
+        good_vals << val
+      elsif conflicts < min_conflicts
+        good_vals = [val]
         min_conflicts = conflicts
       end
     end
-    assignments[id] = best_val
+    if good_vals.size > 1
+      assignments[id] = good_vals.reject { |val| val == curr_val }.sample
+    else
+      assignments[id] = good_vals.first
+    end
     return assignments
   end
 
-  def rmc_assign(assignments = {})
+  # Randomly select a variable that's constrained 
+  def randomly_constrained_vars(assignments)
+    conflicted_keys = []
+    assignments.each_key do |id|
+      constraints.each do |constraint|
+        if !constraint.var_is_constrained?(id, assignments)
+          next 
+        elsif !constraint.valid(assignments)
+          conflicted_keys << id
+          break
+        end
+      end
+    end
+    return conflicted_keys
+  end
+
+  # Get most constrained variables
+  def most_constrained_vars(assignments, last_var)
+    most_conflicted_vars = []
+    max_conflicts = 0
+    assignments.reject{|id, val| id == last_var}.each_key do |id|
+      conflicts = count_constraints(id, assignments)
+      if conflicts == max_conflicts
+        most_conflicted_vars << id
+      elsif conflicts > max_conflicts
+        most_conflicted_vars = [id] 
+        max_conflicts = conflicts
+      end 
+    end
+    return most_conflicted_vars
+  end
+
+  # This is the recursive min-conflicts algorithm
+  def mc_assign(assignments = {}, last_var)
     return assignments if mc_satisfied?(assignments)
-    assignments.keys.each do |id| 
-      assignments = best_value(id, assignments)
-      puts id
-      puts assignments
-    end
-    return rmc_assign(assignments)
+    constrained_vars =  most_constrained_vars(assignments, last_var)
+    constrained_vars.delete(last_var)
+    var = constrained_vars.sample
+    return false if var.nil?
+    assignments = least_constraining_value(var, assignments)
+    return mc_assign(assignments, var)
   end
 
-
-  def rand_min_conflicts()
+  # Pass a randomized hash to the recursive min_conflicts algorithm
+  def min_conflicts()
     random_hash = {}
-    vars.keys.shuffle.each do |var|
-      random_hash[var] = vars[var].domain.sample
+    vars.each do |id, var|
+      random_hash[id] = var.domain.sample
     end
-    rmc_assign(random_hash)
+    puts random_hash
+    mc_assign(random_hash, random_hash.keys.sample)
   end
 
-  # Restore the domain of variables we pruned
-  def unprune_vars
-    vars.each_value do |var|
-      var.unprune
-    end
-  end
 end
 
 class Variable
@@ -201,17 +247,49 @@ class Constraint
   end
 end
 
+class SoftConstraint
+  attr_reader :vars, :blck
+
+  def initialize(vars: nil, blck: nil)
+      @vars = vars.flatten.compact
+      @blck = blck
+      if @blck.nil?
+          raise ArgumentError
+      end
+  end
+
+  # Checks if a given variable is constrained by the current constraint object 
+  # (i.e. if the constraint applies to Var1 and Var2, we shouldn't run it on Var 3)
+  def var_is_constrained?(new_var, assignments)
+      vars.include?(new_var) && vars.all?{ |v| assignments.key?(v) } || vars.empty?
+  end
+
+  # Checks to see if the assignment has a new variable
+  def valid(assignments)
+      blck.call(*vals_for(assignments), assignments)
+  end
+
+  # Gets relevant values for specific variables
+  def vals_for(assignments)
+      assignments.values_at(*vars)
+  end
+end
+
 
 problem = Problem.new
-problem.new_var :a, domain: [1, 2, 3, 4, 5]
-problem.new_var :b, domain: [1, 2, 3, 4, 5]
-problem.new_var :c, domain: [1, 2, 3, 4, 5]
-problem.new_var :d, domain: [1, 2, 3, 4, 5, 6, 7, 8]
+### Test Set 1 ###
 
-problem.new_constraint(:a, :b) { |a, b| a > b }
-problem.new_constraint(:b, :c) { |b, c| b < c}
-problem.new_constraint(:a, :c, :d) { |a, c, d| a + c <+ d}
+# problem.new_var :a, domain: [1, 2, 3, 4, 5]
+# problem.new_var :b, domain: [1, 2, 3, 4, 5]
+# problem.new_var :c, domain: [1, 2, 3, 4, 5]
+# problem.new_var :d, domain: [1, 2, 3, 4, 5]
 
+# problem.new_constraint(:a, :b) { |a, b| a > b }
+# problem.new_constraint(:b, :c) { |b, c| b < c}
+# problem.new_constraint(:a, :c, :d) { |a, c, d| a + c <= d}
+# problem.new_constraint(:a, :b, :c, :d) { |a, b, c, d| a + b + c + d >= 11}
+
+### Test Set 2 ###
 
 # problem.new_var :a, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 # problem.new_var :b, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
@@ -225,4 +303,38 @@ problem.new_constraint(:a, :c, :d) { |a, c, d| a + c <+ d}
 # problem.new_constraint(:a, :b, :c, :e) {|a, b, c, d| a + b + c + d > 40}
 # problem.new_constraint(:c, :a) { |c, a| c > a }
 
-puts problem.rand_min_conflicts
+
+### Test Set 3 ###
+
+problem.new_var :a1, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a2, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a3, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a4, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a5, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a6, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a7, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a8, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a9, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a10, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a11, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a12, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a13, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a14, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a15, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+problem.new_constraint(:a1, :a2) { |a, b| a > b }
+problem.new_constraint(:a2, :a3) { |a, b| a > b }
+problem.new_constraint(:a3, :a4) { |a, b| a > b }
+problem.new_constraint(:a4, :a5) { |a, b| a > b }
+problem.new_constraint(:a5, :a6) { |a, b| a > b }
+problem.new_constraint(:a6, :a7) { |a, b| a > b }
+problem.new_constraint(:a7, :a8) { |a, b| a > b }
+problem.new_constraint(:a8, :a9) { |a, b| a > b }
+problem.new_constraint(:a9, :a10) { |a, b| a > b }
+problem.new_constraint(:a10, :a11) { |a, b| a > b }
+problem.new_constraint(:a11, :a12) { |a, b| a > b }
+problem.new_constraint(:a12, :a13) { |a, b| a > b }
+problem.new_constraint(:a13, :a14) { |a, b| a > b }
+problem.new_constraint(:a14, :a15) { |a, b| a > b }
+
+puts problem.min_conflicts
