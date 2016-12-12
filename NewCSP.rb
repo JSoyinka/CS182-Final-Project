@@ -1,11 +1,13 @@
 class Problem
   attr_reader :constraints
+  attr_reader :soft_consts
   attr_reader :vars
   attr_accessor :assignments
 
   # Easier to have each variable as a map for easier reference with an id
   def initialize
     @constraints = []
+    @soft_consts = []
     @vars = {}
     @assignments = {}
   end
@@ -21,6 +23,11 @@ class Problem
   def new_constraint(*vars, &block)
     constraint = Constraint.new(vars: vars, blck: block)
     constraints.push(constraint)
+  end
+
+  def new_soft_constraint(*vars, &block)
+    soft_const = SoftConstraint.new(vars: vars, blck: block)
+    soft_consts.push(soft_const)
   end
 
   ## SECTION FOR BACKTRACK FUNCTIONS##
@@ -61,8 +68,8 @@ class Problem
   end
 
   # Restore the domain of variables we pruned
-  def unprune_vars
-    vars.each_value do |var|
+  def unprune_vars(assigned)
+    vars.reject{|id, key| assigned.include?(id)}.each_value do |var|
       var.unprune
     end
   end
@@ -77,11 +84,6 @@ class Problem
     vars.reject { |x| assignments.include?(x) }.each_value.first
   end
 
-  def most_constrained_var(assignments)
-    assignments.each do |var|
-
-    end 
-  end
   # Backtrack function
   def backtrack(assignments = {})
     return assignments if backtrack_done?(assignments)
@@ -91,7 +93,7 @@ class Problem
       assigned = assignments.merge(var.id => value)
       # If forward check completely pruned the domain of a variable choose another value assignment
       unless forward_check(assigned)
-        unprune_vars
+        unprune_vars (assigned)
         next
       end
       # Check to see if that assignment was valid
@@ -127,11 +129,34 @@ class Problem
     return conflicts
   end
 
+  def most_soft_constraints(good_vals, id, assignments)
+    max_satisfied = -1
+    best_vals = []
+    good_vals.each do |val|
+      satisfied = 0
+      assignments[id] = val
+      soft_consts.each do |constraint|
+        if !constraint.var_is_constrained?(id, assignments)
+          next 
+        elsif constraint.valid(assignments)
+          satisfied += 1
+        end
+      end
+      if satisfied == max_satisfied
+        best_vals << val 
+      elsif satisfied > max_satisfied
+        best_vals = [val]
+      end
+    end
+    assignments[id] = best_vals.sample
+  end
+
   def least_constraining_value(id, assignments)
     # Better to keep the value the same, if there are conflicts
     curr_val = assignments[id]
     good_vals = [assignments[id]]
     min_conflicts = count_constraints(id, assignments)
+    # Loops through values, besides the current one
     vars[id].domain.reject{|x| x == curr_val}.each do |val|
       # First checks to see if the constraint applies to the new variable, then checks if the assignment is valid
       assignments[id] = val
@@ -143,8 +168,10 @@ class Problem
         min_conflicts = conflicts
       end
     end
+    # If there is more than one acceptable value, choose one other than the current
     if good_vals.size > 1
-      assignments[id] = good_vals.reject { |val| val == curr_val }.sample
+      # assignments[id] = good_vals.reject { |val| val == curr_val }.sample
+      most_soft_constraints(good_vals, id, assignments)
     else
       assignments[id] = good_vals.first
     end
@@ -191,6 +218,7 @@ class Problem
     var = constrained_vars.sample
     return false if var.nil?
     assignments = least_constraining_value(var, assignments)
+    puts assignments
     return mc_assign(assignments, var)
   end
 
@@ -200,7 +228,6 @@ class Problem
     vars.each do |id, var|
       random_hash[id] = var.domain.sample
     end
-    puts random_hash
     mc_assign(random_hash, random_hash.keys.sample)
   end
 end
@@ -252,11 +279,12 @@ class Constraint
 end
 
 class SoftConstraint
-  attr_reader :vars, :blck
+  attr_reader :vars, :blck, :weight
 
-  def initialize(vars: nil, blck: nil)
+  def initialize(vars: nil, blck: nil, weight: nil)
       @vars = vars.flatten.compact
       @blck = blck
+      @weight = weight
       if @blck.nil?
           raise ArgumentError
       end
@@ -310,35 +338,19 @@ problem = Problem.new
 
 ### Test Set 3 ###
 
-problem.new_var :a1, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a2, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a3, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a4, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a5, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a6, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a7, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a8, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a9, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a10, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a11, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a12, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a13, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a14, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :a15, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :a, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :b, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :c, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :d, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
-problem.new_constraint(:a1, :a2) { |a, b| a > b }
-problem.new_constraint(:a2, :a3) { |a, b| a > b }
-problem.new_constraint(:a3, :a4) { |a, b| a > b }
-problem.new_constraint(:a4, :a5) { |a, b| a > b }
-problem.new_constraint(:a5, :a6) { |a, b| a > b }
-problem.new_constraint(:a6, :a7) { |a, b| a > b }
-problem.new_constraint(:a7, :a8) { |a, b| a > b }
-problem.new_constraint(:a8, :a9) { |a, b| a > b }
-problem.new_constraint(:a9, :a10) { |a, b| a > b }
-problem.new_constraint(:a10, :a11) { |a, b| a > b }
-problem.new_constraint(:a11, :a12) { |a, b| a > b }
-problem.new_constraint(:a12, :a13) { |a, b| a > b }
-problem.new_constraint(:a13, :a14) { |a, b| a > b }
-problem.new_constraint(:a14, :a15) { |a, b| a > b }
+problem.new_constraint(:a, :b) { |a, b| a > b }
+problem.new_constraint(:b, :c) { |b, c| b < c}
+problem.new_constraint(:a, :c, :d) { |a, c, d| a + c > d}
+problem.new_constraint(:a, :b, :c, :d) { |a, b, c, d| a + b + c + d >= 11}
 
-puts problem.min_conflicts
+problem.new_soft_constraint(:a) {|a| % 2 == 0}
+problem.new_soft_constraint(:b) {|b| % 3 == 0}
+problem.new_soft_constraint(:c) {|c| % 4 == 0}
+problem.new_soft_constraint(:d) {|d| % 5 == 0}
+ 
+puts problem.backtrack
