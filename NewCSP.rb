@@ -218,12 +218,12 @@ class Problem
   # This is the recursive min-conflicts algorithm
   def mc_assign(assignments = {}, last_var)
     return assignments if mc_satisfied?(assignments)
-    constrained_vars =  most_constrained_vars(assignments, last_var)
+    constrained_vars = most_constrained_vars(assignments, last_var)
     constrained_vars.delete(last_var)
     var = constrained_vars.sample
     return false if var.nil?
     assignments = least_constraining_value(var, assignments)
-    puts assignments
+    # puts assignments
     return mc_assign(assignments, var)
   end
 
