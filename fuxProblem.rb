@@ -5,21 +5,22 @@ class FuxProblem < Problem
 	def initialize(chord_progression, key)
 		# hash of chords as vars. Very important that we are zero indexed...
 		@vars = {}
+		numChords = chord_progression.length
 		chord_progression.each_with_index do |chord, i|
-			@vars[i] = FuxChord.new(key, chord, i)
+			terminal = (i == numChords - 1)
+			@vars[i] = FuxChord.new(key, chord, i, terminal)
 		end
 		@constraints = []
 		@soft_constraints = []
 		@assignments = {}
 		# add all constraints between the vars.
-		numChords = @vars.length
 		# first pass: add binary constraints
 		0.upto(numChords - 2) do |i|
 			@constraints << NoParallelMotionOuterVoices.new(@vars[i], @vars[i+1])
 			@constraints << NoSimilarToPerfectOuterVoices.new(@vars[i], @vars[i+1])
 			@constraints << NoForbiddenParallels.new(@vars[i], @vars[i+1])
-			@constraints << NoSkipsGreaterThanOctave.new(@vars[i], @vars[i+1])
-			@constraints << ResolveSevenths.new(@vars[i], @vars[i+1])
+			@constraints << ValidSkipDistances.new(@vars[i], @vars[i+1])
+			@constraints << ResolveSevenths.new(@vars[i], @vars[i+1], Note::NameToValue[key])
 		end
 		# third pass: add ternary constraints
 		0.upto(numChords - 2) do |i|
@@ -60,7 +61,7 @@ class FuxChord < Variable
 	# 0 1  2 3  4 5 6  7 8  9 10 11
 	MajorScale = [0, 2, 4, 5, 7, 9, 11]
 
-	def initialize(key, chordType, id)
+	def initialize(key, chordType, id, terminal=false)
 		# [soprano, alto, tenor, bass]
 		@assignment = [nil, nil, nil, nil]
 		@domain = []
@@ -76,7 +77,7 @@ class FuxChord < Variable
 		@fifth = keyPitchNum + MajorScale[(chordType + 4) % 7]
 		@fifth %= 12
 
-		set_up_domain_properly()
+		set_up_domain_properly(terminal)
 	end
 
 	def can_contain_pitch?(note)
@@ -99,7 +100,7 @@ class FuxChord < Variable
 		@assignment[3]
 	end
 
-	def set_up_domain_properly()
+	def set_up_domain_properly(terminal)
 		# The strategy will be to first construct all combinations of four notes that fit the key and chord.
 		# Later, we will filter out ones that do not agree with our unbreakable unary constraints.
 		(Ranges[:soprano][:bot]..Ranges[:soprano][:top]).each do |s|
@@ -117,13 +118,26 @@ class FuxChord < Variable
 		end
 		@init_domain.each do |values|
 			varValues = values.map(&:pitchNum)
+			goodDist = false
+			if terminal
+				# end on unison or unison + one third
+				if varValues.uniq.length < 3
+					unless varValues.include? fifth
+						if varValues.count {|x| x == root} == 3
+							goodDist = true
+						end
+					end
+				end
+			else
+				goodDist = (varValues.uniq.length == 3)
+			end
 			s = values[0]
 			a = values[1]
 			t = values[2]
 			b = values[3]
 			soprano_and_alto = (s.within?(12, a))
 			alto_and_tenor = (a.within?(12, t))
-			if soprano_and_alto && alto_and_tenor && varValues.uniq.length == 3
+			if soprano_and_alto && alto_and_tenor && goodDist
 				if (s>=a) && (a>=t) && (t>=b)
 					@domain << values
 				end
@@ -230,7 +244,7 @@ class NoForbiddenParallels < Constraint
 	end
 end
 
-class NoSkipsGreaterThanOctave < Constraint
+class ValidSkipDistances < Constraint
 	def initialize(var1, var2)
 		@vars = [var1.id, var2.id]
 	end
@@ -243,22 +257,44 @@ class NoSkipsGreaterThanOctave < Constraint
 			second_chord[2].midiValue - first_chord[2].midiValue,
 			second_chord[3].midiValue - first_chord[3].midiValue
 		]
-		return differences.all? {|n| n.abs <= 12}
+		# C C# D D# E F F# G G# A A# B
+		# 0 1  2 3  4 5 6  7 8  9 10 11
+		# no skips greater than a fifth with the exception of the minor 6th + octave
+		return differences.all? { |n| [0, 1, 2, 4, 5, 7, 8, 12].include? n.abs }
 	end
 end
 
 class ResolveSevenths < Constraint
-	def initialize(var1, var2)
+	def initialize(var1, var2, keyPitchNum)
 		@vars = [var1.id, var2.id]
+		@keyPitchNum = keyPitchNum
 	end
 	def valid(assignment)
 		first_chord = assignment[@vars[0]]
 		second_chord = assignment[@vars[1]]
+		# puts "#{first_chord.map(&:to_s)}"
+		# puts "#{second_chord.map(&:to_s)}"
+		# are any of the first chord notes sevenths?
+		0.upto(3) do |i|
+			if first_chord[i].pitchNum == ((@keyPitchNum + 11) % 12)
+				# puts "caught a B"
+
+				# then ensure that second chord in this voice has the root.
+				unless second_chord[i] == first_chord[i].succ
+					# puts "false"
+					return false
+				end
+			end
+		end
+		# puts "true"
+		return true
 	end
 end
 
-LEN_INPUT = 8
-testlol = FuxProblem.new([1,4,5,4,5,1,4,1], "C")
+
+input_sequence = [1,4,5,6,4,2,5,4,1]
+LEN_INPUT = input_sequence.length
+testlol = FuxProblem.new([1,4,5,6,4,2,5,4,1], "C")
 # puts testlol.vars
 # puts testlol.constraints
 d = testlol.backtrack
