@@ -1,5 +1,3 @@
-require "byebug"
-
 class Problem
   attr_reader :constraints
   attr_reader :soft_consts
@@ -88,9 +86,14 @@ class Problem
 
   # Backtrack function
   def backtrack(assignments = {})
+    # puts vars
+    # puts constraints
+    STDOUT.flush
     return assignments if backtrack_done?(assignments)
     var = next_available_var(assignments)
     var.domain.each do |value|
+        # puts "#{value.map(&:to_s)}"
+        if rand < 0.1 then STDOUT.flush end
       # Assigned the next possible value
       assigned = assignments.merge(var.id => value)
       # If forward check completely pruned the domain of a variable choose another value assignment
@@ -318,41 +321,41 @@ problem = Problem.new
 # problem.new_var :c, domain: [1, 2, 3, 4, 5]
 # problem.new_var :d, domain: [1, 2, 3, 4, 5]
 
-# problem.new_constraint(:a, :b) { |a, b| a > b }
-# problem.new_constraint(:b, :c) { |b, c| b < c}
-# problem.new_constraint(:a, :c, :d) { |a, c, d| a + c <= d}
-# problem.new_constraint(:a, :b, :c, :d) { |a, b, c, d| a + b + c + d >= 11}
+problem.new_constraint(:a, :b) { |a, b| a > b }
+problem.new_constraint(:b, :c) { |b, c| b < c}
+problem.new_constraint(:a, :c, :d) { |a, c, d| a + c <= d}
+problem.new_constraint(:a, :b, :c, :d) { |a, b, c, d| a + b + c + d >= 11}
 
 ### Test Set 2 ###
-
-# problem.new_var :a, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-# problem.new_var :b, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-# problem.new_var :c, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-# problem.new_var :d, domain: [7, 8, 9, 10, 11]
-# problem.new_var :e, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-
-# problem.new_constraint(:b, :c) { |b, c| b > c }
-# problem.new_constraint(:b) { |a| a % 3 == 0 }
-# problem.new_constraint(:b, :a) { |b, a| b == a * 2 }
-# problem.new_constraint(:a, :b, :c, :e) {|a, b, c, d| a + b + c + d > 40}
-# problem.new_constraint(:c, :a) { |c, a| c > a }
-
-
-### Test Set 3 ###
 
 problem.new_var :a, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 problem.new_var :b, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 problem.new_var :c, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-problem.new_var :d, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+problem.new_var :d, domain: [7, 8, 9, 10, 11]
+problem.new_var :e, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
-problem.new_constraint(:a, :b) { |a, b| a > b }
-problem.new_constraint(:b, :c) { |b, c| b < c}
-problem.new_constraint(:a, :c, :d) { |a, c, d| a + c > d}
-problem.new_constraint(:a, :b, :c, :d) { |a, b, c, d| a + b + c + d >= 11}
+# problem.new_constraint(:b, :c) { |b, c| b > c }
+problem.new_constraint(:b) { |a| a % 3 == 0 }
+# problem.new_constraint(:b, :a) { |b, a| b == a * 2 }
+# problem.new_constraint(:a, :b, :c, :e) {|a, b, c, d| a + b + c + d > 40}
+problem.new_constraint(:c, :a) { |c, a| c > a }
 
-problem.new_soft_constraint(:a) {|a| % 2 == 0}
-problem.new_soft_constraint(:b) {|b| % 3 == 0}
-problem.new_soft_constraint(:c) {|c| % 4 == 0}
-problem.new_soft_constraint(:d) {|d| % 5 == 0}
+
+### Test Set 3 ###
+
+# problem.new_var :a, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+# problem.new_var :b, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+# problem.new_var :c, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+# problem.new_var :d, domain: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+
+# problem.new_constraint(:a, :b) { |a, b| a > b }
+# problem.new_constraint(:b, :c) { |b, c| b < c}
+# problem.new_constraint(:a, :c, :d) { |a, c, d| a + c > d}
+# problem.new_constraint(:a, :b, :c, :d) { |a, b, c, d| a + b + c + d >= 11}
+
+# problem.new_soft_constraint(:a) {|a| % 2 == 0}
+# problem.new_soft_constraint(:b) {|b| % 3 == 0}
+# problem.new_soft_constraint(:c) {|c| % 4 == 0}
+# problem.new_soft_constraint(:d) {|d| % 5 == 0}
  
-puts problem.backtrack
+# puts problem.backtrack

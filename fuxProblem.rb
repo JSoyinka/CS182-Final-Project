@@ -12,21 +12,14 @@ class FuxProblem < Problem
 		@soft_constraints = []
 		@assignments = {}
 		# add all constraints between the vars.
-		# first pass: add unary constraints.
 		numChords = @vars.length
-		0.upto(numChords) do |i|
-			# Distance between voices cannot exceed an octave (except tenor/bass).
-			@constraints << DoesThisWorkConstraint.new(@vars[i])
-			@constraints << VoicesWithinOctave.new(@vars[i])
-			unless i == numChords - 1
-				@constraints << DoublingRulesNonTerminal.new(@vars[i])
-			end 
-		end
-		@constraints << DoublingRulesTerminal.new(@vars[numChords - 1])
-		# second pass: add binary constraints
-		0.upto(numChords - 1) do |i|
-			# @constraints << SampleBinaryConstraint.new(@vars[i], @vars[i+1])
-			# @constraints << ResolveSevenths.new(@vars[i], @vars[i+1])
+		# first pass: add binary constraints
+		0.upto(numChords - 2) do |i|
+			@constraints << NoParallelMotionOuterVoices.new(@vars[i], @vars[i+1])
+			@constraints << NoSimilarToPerfectOuterVoices.new(@vars[i], @vars[i+1])
+			@constraints << NoForbiddenParallels.new(@vars[i], @vars[i+1])
+			@constraints << NoSkipsGreaterThanOctave.new(@vars[i], @vars[i+1])
+			@constraints << ResolveSevenths.new(@vars[i], @vars[i+1])
 		end
 		# third pass: add ternary constraints
 		0.upto(numChords - 2) do |i|
@@ -40,6 +33,8 @@ class FuxChord < Variable
 	attr_reader :root
 	attr_reader :third
 	attr_reader :fifth
+	attr_reader :id
+	attr_reader :assignment
 
 	Ranges = {
 		soprano: {
@@ -68,6 +63,7 @@ class FuxChord < Variable
 	def initialize(key, chordType, id)
 		# [soprano, alto, tenor, bass]
 		@assignment = [nil, nil, nil, nil]
+		@domain = []
 		@init_domain = []
 		@id = id
 
@@ -119,7 +115,25 @@ class FuxChord < Variable
 				end
 			end
 		end
-		@domain = init_domain.clone
+		@init_domain.each do |values|
+			varValues = values.map(&:pitchNum)
+			s = values[0]
+			a = values[1]
+			t = values[2]
+			b = values[3]
+			soprano_and_alto = (s.within?(12, a))
+			alto_and_tenor = (a.within?(12, t))
+			if soprano_and_alto && alto_and_tenor && varValues.uniq.length == 3
+				if (s>=a) && (a>=t) && (t>=b)
+					@domain << values
+				end
+			end
+		end
+		# @domain.each {|chord| puts "#{chord.map(&:to_s)}"}
+		@domain.shuffle!
+		@init_domain = domain.clone
+		# @domain = @init_domain.clone
+		# puts @domain.length
 	end
 
 	def ensure_within_ranges
@@ -143,76 +157,172 @@ class FuxChord < Variable
 	end
 end
 
-class VoicesWithinOctave < Constraint
-	def initialize(chord)
-		@vars = [chord]
-		@function = lambda do
-			
-		end
-	end
-
-	def valid?
-		# is soprano within octave of alto?
-		# is alto within octave of tenor?
-		chord = @vars[0]
-		soprano_and_alto = (chord.soprano.within?(12, chord.alto))
-		alto_and_tenor = (chord.alto.within?(12, chord.tenor))
-		# only true when both are true.
-		return soprano_and_alto && alto_and_tenor
-	end
-end
-
-class DoublingRulesNonTerminal < Constraint
-	# Doubling rules:
-	#  If chord is not 7:
-	#   Best: root x2, third x1, fifth x1
-	#   Next best: root x1, third x1, fifth x2
-	#   Next best: root x1, third x2, fifth x1
-	#   Next best: root x3, third x1
-	#   all others are unacceptable
-	def initialize(chord)
-		@vars = [chord]
-	end
-
-	def valid?
-		# Make sure all 3 notes are represented.
-		return @vars[0].uniq.length == 3
-	end
-end
-
-class DoublingRulesTerminal < Constraint
-	def initialize(chord)
-		@vars = [chord]
-	end
-
-	def valid?
-		# Either all notes represented, or there are three roots.
-		if @vars[0].uniq.length == 3
-			return true
-		end
-		# Ensure we have 3 roots and 1 third.
-		numRoots = 0
-		numThirds = 0
-		@vars[0].each do |note|
-			if note.pitchNum == @vars[0].root
-				numRoots += 1
-			elsif note.pitchNum == @vars[0].third
-				numThirds += 1
-			end
-		end
-		return numRoots == 3 && numThirds == 1
-	end
-end
-
+# For testing purposes only.
 class DoesThisWorkConstraint < Constraint
 	def initialize(chord)
-		@vars = [chord]
+		@vars = []
 	end
-	def valid?
+	def valid(a)
 		false
 	end
 end
 
-testlol = FuxProblem.new([1, 7, 1], "C")
-d = testlol.assign
-0.upto(2) { |x| puts "#{d[x].map(&:to_s)}"}
+def sign(int)
+	if int == 0 then return :z end
+	if int == int.abs then :+ else :- end
+end
+
+class NoParallelMotionOuterVoices < Constraint
+	def initialize(var1, var2)
+		@vars = [var1.id, var2.id]
+	end
+
+	def valid(assignment)
+		first_chord = assignment[@vars[0]]
+		second_chord = assignment[@vars[1]]
+		# cannot be same interval in same direction.
+		s_direction = first_chord[0].midiValue - second_chord[0].midiValue
+		b_direction = first_chord[3].midiValue - second_chord[3].midiValue
+		return s_direction != b_direction
+	end
+end
+
+class NoSimilarToPerfectOuterVoices < Constraint
+	def initialize(var1, var2)
+		@vars = [var1.id, var2.id]
+	end
+	def valid(assignment)
+		first_chord = assignment[@vars[0]]
+		second_chord = assignment[@vars[1]]
+		s_direction = sign(first_chord[0].midiValue - second_chord[0].midiValue)
+		b_direction = sign(first_chord[3].midiValue - second_chord[3].midiValue)
+		if s_direction == b_direction
+			# in the second chord, is it a perfect interval?
+			if [0, 5, 7].include?((second_chord[0].pitchNum - second_chord[3].pitchNum) % 12)
+				return false
+			end
+		end
+		true
+	end
+end
+
+class NoForbiddenParallels < Constraint
+	def initialize(var1, var2)
+		@vars = [var1.id, var2.id]
+	end
+	def valid(assignment)
+		first_chord = assignment[@vars[0]]
+		second_chord = assignment[@vars[1]]
+		differences = [
+			second_chord[0].midiValue - first_chord[0].midiValue,
+			second_chord[1].midiValue - first_chord[1].midiValue,
+			second_chord[2].midiValue - first_chord[2].midiValue,
+			second_chord[3].midiValue - first_chord[3].midiValue
+		]
+		# Check for forbidden parallels (fifths, octaves) in each of them.
+		[0, 1, 2, 3].permutation(2).each do |i1, i2|
+			if differences[i1] == differences[i2]
+				if [0, 7].include? differences[i1].abs
+					return false
+				end
+			end
+		end
+	end
+end
+
+class NoSkipsGreaterThanOctave < Constraint
+	def initialize(var1, var2)
+		@vars = [var1.id, var2.id]
+	end
+	def valid(assignment)
+		first_chord = assignment[@vars[0]]
+		second_chord = assignment[@vars[1]]
+		differences = [
+			second_chord[0].midiValue - first_chord[0].midiValue,
+			second_chord[1].midiValue - first_chord[1].midiValue,
+			second_chord[2].midiValue - first_chord[2].midiValue,
+			second_chord[3].midiValue - first_chord[3].midiValue
+		]
+		return differences.all? {|n| n.abs <= 12}
+	end
+end
+
+class ResolveSevenths < Constraint
+	def initialize(var1, var2)
+		@vars = [var1.id, var2.id]
+	end
+	def valid(assignment)
+		first_chord = assignment[@vars[0]]
+		second_chord = assignment[@vars[1]]
+	end
+end
+
+LEN_INPUT = 8
+testlol = FuxProblem.new([1,4,5,4,5,1,4,1], "C")
+# puts testlol.vars
+# puts testlol.constraints
+d = testlol.backtrack
+# puts d
+chordList = []
+0.upto(LEN_INPUT - 1) { |x| chordList << d[x] }
+0.upto(LEN_INPUT - 1) { |x| puts "#{chordList[x].map(&:to_s)}" }
+
+require 'midilib/sequence'
+require 'midilib/consts'
+include MIDI
+
+seq = Sequence.new()
+
+# Create a first track for the sequence. This holds tempo events and stuff
+# like that.
+track = Track.new(seq)
+seq.tracks << track
+track.events << Tempo.new(Tempo.bpm_to_mpq(120))
+track.events << MetaEvent.new(META_SEQ_NAME, 'Sequence Name')
+
+# Create a track to hold the notes. Add it to the sequence.
+track = Track.new(seq)
+seq.tracks << track
+
+# Give the track a name and an instrument name (optional).
+track.name = 'My New Track'
+# puts GM_PATCH_NAMES[52]
+track.instrument = GM_PATCH_NAMES[52]
+
+# Add a volume controller event (optional).
+track.events << Controller.new(0, CC_VOLUME, 127)
+
+# Add events to the track: a major scale. Arguments for note on and note off
+# constructors are channel, note, velocity, and delta_time. Channel numbers
+# start at zero. We use the new Sequence#note_to_delta method to get the
+# delta time length of a single quarter note.
+track.events << ProgramChange.new(0, 1, 0)
+quarter_note_length = seq.note_to_delta('quarter')
+chordList.each do |chord|
+	chord.each do |note|
+		track.events << NoteOn.new(0, note.midiValue, 127, 0)
+	end
+	length_of_time = quarter_note_length * 2
+	chord.each do |note|
+		track.events << NoteOff.new(0, note.midiValue, 127, length_of_time)
+		length_of_time = 0
+	end
+end
+# [0, 2, 4, 5, 7, 9, 11, 12].each do |offset|
+#   track.events << NoteOn.new(0, 64 + offset, 127, 0)
+#   track.events << NoteOn.new(0, 64 + offset + 4, 127, 0)
+#   track.events << NoteOff.new(0, 64 + offset, 127, quarter_note_length)
+#   track.events << NoteOff.new(0, 64 + offset + 4, 127, 0)
+#   track.events << NoteOn.new(0, 64 + offset, 127, 0)
+#   track.events << NoteOn.new(0, 64 + offset + 4, 127, 0)
+#   track.events << NoteOff.new(0, 64 + offset, 127, quarter_note_length)
+#   track.events << NoteOff.new(0, 64 + offset + 4, 127, 0)
+# end
+
+# Calling recalc_times is not necessary, because that only sets the events'
+# start times, which are not written out to the MIDI file. The delta times are
+# what get written out.
+
+# track.recalc_times
+
+File.open('real_results.mid', 'wb') { |file| seq.write(file) }
