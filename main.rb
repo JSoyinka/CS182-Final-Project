@@ -1,4 +1,3 @@
-require "benchmark"
 require_relative "./fuxProblem.rb"
 
 key = ARGV[1]
