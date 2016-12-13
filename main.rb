@@ -9,9 +9,7 @@ testlol = FuxProblem.new(input_sequence, key)
 if ARGV[0].include? "b"
 	d = testlol.backtrack
 elsif ARGV[0].include? "m"
-	d = testlol.min_conflicts(true)
-elsif ARGV[0].include? "r"
-	d = testlol.min_conflicts(false)
+	d = testlol.min_conflicts
 end
 # puts d
 chordList = []
